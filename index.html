@@ -76,6 +76,16 @@
       return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)} ${timeStr.slice(0, 2)}:${timeStr.slice(2, 4)}`;
     }
 
+    function formatRainfall(val) {
+      if (val === '-' || val === '0' || val === null || val === 'null') return '강수없음';
+      const num = parseFloat(val);
+      if (isNaN(num) || num === 0) return '강수없음';
+      if (num < 1.0) return '1mm 미만';
+      if (num < 30.0) return `${num.toFixed(1)}mm`;
+      if (num < 50.0) return '30.0~50.0mm';
+      return '50.0mm 이상';
+    }
+
     async function fetchWeather(regionName, nx, ny) {
       const type = document.getElementById("forecastType").value;
       document.getElementById("weather").innerText = `☁️ ${regionName}의 날씨 정보를 불러오는 중...`;
@@ -84,7 +94,7 @@
       const now = new Date();
       let base = new Date(now);
 
-      let attempts = type === 'ultra' ? 48 : 8; // 초단기: 30분 단위 최대 24시간, 단기: 3시간 단위 최대 하루
+      let attempts = type === 'ultra' ? 48 : 8;
       let found = false;
       let resultHtml = '';
 
@@ -127,8 +137,11 @@
             let value = dataMap[category];
             if (category === 'PTY') {
               value = (type === 'ultra' ? ptyUltraCodes[value] : ptyVilageCodes[value]) || value;
+            } else if (category === 'SKY') {
+              value = skyCodes[value] || value;
+            } else if (category === 'RN1' || category === 'PCP') {
+              value = formatRainfall(value);
             }
-            if (category === 'SKY') value = skyCodes[value] || value;
             resultHtml += `<li>🔹 <strong>${label}</strong>: ${value}</li>`;
           });
 
