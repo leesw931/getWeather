@@ -40,8 +40,8 @@
 
   <label for="forecastType">예보 종류 선택:</label>
   <select id="forecastType">
-    <option value="ultraShort">초단기예보</option>
-    <option value="short">단기예보</option>
+    <option value="ultra">초단기예보</option>
+    <option value="vilage">단기예보</option>
   </select>
 
   <div>
@@ -54,26 +54,14 @@
 
   <script>
     const categoryLabels = {
-      T1H: '기온 (℃)',
-      RN1: '1시간 강수량 (mm)',
-      UUU: '동서 바람성분 (m/s)',
-      VVV: '남북 바람성분 (m/s)',
-      REH: '습도 (%)',
-      PTY: '강수형태',
-      VEC: '풍향 (°)',
-      WSD: '풍속 (m/s)',
-      POP: '강수확률 (%)',
-      TMN: '최저기온 (℃)',
-      TMX: '최고기온 (℃)',
-      SKY: '하늘상태',
-      PCP: '강수량',
-      WAV: '파고 (m)',
-      TCI: '체감온도'
+      T1H: '기온 (℃)', RN1: '1시간 강수량 (mm)', UUU: '동서 바람성분 (m/s)',
+      VVV: '남북 바람성분 (m/s)', REH: '습도 (%)', PTY: '강수형태', VEC: '풍향 (°)',
+      WSD: '풍속 (m/s)', POP: '강수확률 (%)', TMN: '최저기온 (℃)', TMX: '최고기온 (℃)',
+      SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도'
     };
 
     const ptyCodes = {
-      '0': '없음', '1': '비', '2': '비/눈', '3': '눈',
-      '4': '소나기', '5': '빗방울', '6': '빗방울/눈날림', '7': '눈날림'
+      '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '4': '소나기', '5': '빗방울', '6': '빗방울/눈날림', '7': '눈날림'
     };
 
     const skyCodes = {
@@ -86,35 +74,62 @@
 
       const serviceKey = 'sCYMAONouIJFymPl0EiTeP15zhJtniLfUyqsTw3B0H9TNzwiTs%2FB0zu0zi5L4uiphDvdpygwuLp%2BYbBju3Mx%2Fw%3D%3D';
       const now = new Date();
-      const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const hour = now.getHours();
-      const baseTime = ("0" + (hour - 1)).slice(-2) + "00";
+      let baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
+      let hour = now.getHours();
+      let minute = now.getMinutes();
 
-      let url = "";
-      if (type === "ultraShort") {
-        url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
-      } else if (type === "short") {
-        url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+      // 단기예보는 0200, 0500, 0800, 1100, 1400, 1700, 2000, 2300 기준
+      const baseTimes = type === 'vilage'
+        ? ['2300','2000','1700','1400','1100','0800','0500','0200']
+        : Array.from({ length: 24 }, (_, i) => ("0" + i).slice(-2) + "00").reverse();
+
+      let found = false;
+      let resultHtml = '';
+
+      for (let baseTime of baseTimes) {
+        let tryHour = parseInt(baseTime.slice(0, 2));
+        if (hour < tryHour) {
+          let dateObj = new Date(now);
+          dateObj.setDate(now.getDate() - 1);
+          baseDate = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
+        }
+
+        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${type === 'ultra' ? 'getUltraSrtNcst' : 'getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+
+        try {
+          const response = await fetch(url);
+          const json = await response.json();
+          const header = json.response.header;
+
+          if (header.resultCode === "03") continue;
+
+          const items = json.response.body.items.item;
+
+          resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
+          resultHtml += `<p>발표 시각: ${baseDate} ${baseTime}</p>`;
+          resultHtml += "<ul class='weather-list'>";
+
+          items.forEach(item => {
+            let label = categoryLabels[item.category] || item.category;
+            let value = item.fcstValue || item.obsrValue;
+            if (item.category === 'PTY') value = ptyCodes[value] || value;
+            if (item.category === 'SKY') value = skyCodes[value] || value;
+            resultHtml += `<li>🔹 <strong>${label}</strong>: ${value}</li>`;
+          });
+
+          resultHtml += "</ul>";
+          found = true;
+          break;
+        } catch (e) {
+          console.error("API fetch error:", e);
+          break;
+        }
       }
 
-      try {
-        const response = await fetch(url);
-        const json = await response.json();
-        const items = json.response.body.items.item;
-
-        let output = `<h3>${regionName} 날씨 (${type === 'ultraShort' ? '초단기예보' : '단기예보'})</h3>`;
-        output += "<ul class='weather-list'>";
-        items.forEach(item => {
-          let label = categoryLabels[item.category] || item.category;
-          let value = item.fcstValue || item.obsrValue;
-          if (item.category === 'PTY') value = ptyCodes[value] || value;
-          if (item.category === 'SKY') value = skyCodes[value] || value;
-          output += `<li>🔹 <strong>${label}</strong>: ${value}</li>`;
-        });
-        output += "</ul>";
-        document.getElementById("weather").innerHTML = output;
-      } catch (error) {
-        document.getElementById("weather").innerText = `⚠️ ${regionName} 날씨 정보를 가져오는 데 실패했습니다.`;
+      if (!found) {
+        document.getElementById("weather").innerText = `⚠️ ${regionName}의 유효한 날씨 정보를 찾을 수 없습니다.`;
+      } else {
+        document.getElementById("weather").innerHTML = resultHtml;
       }
     }
   </script>
