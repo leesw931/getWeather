@@ -45,7 +45,7 @@
   </select>
 
   <div>
-    <button class="location-button" onclick="fetchWeather('만수리', 55, 59)">만수리</button>
+     <button class="location-button" onclick="fetchWeather('만수리', 55, 59)">만수리</button>
     <button class="location-button" onclick="fetchWeather('수지', 62, 121)">수지</button>
     <button class="location-button" onclick="fetchWeather('마산동', 54, 128)">마산동</button>
   </div>
@@ -53,11 +53,11 @@
   <div id="weather">☁️ 지역과 예보 종류를 선택해 주세요.</div>
 
   <script>
-     const categoryLabels = {
+    const categoryLabels = {
       T1H: '기온 (℃)', RN1: '1시간 강수량 (mm)', UUU: '동서 바람성분 (m/s)',
       VVV: '남북 바람성분 (m/s)', REH: '습도 (%)', PTY: '강수형태', VEC: '풍향 (°)',
       WSD: '풍속 (m/s)', POP: '강수확률 (%)', TMN: '최저기온 (℃)', TMX: '최고기온 (℃)',
-      SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도', TMP: '1시간기온', SNO: '1시간 신적설량'
+      SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도', TMP: '1시간기온 (℃)', SNO: '1시간 신적설량 (cm)'
     };
 
     const ptyUltraCodes = {
@@ -72,29 +72,27 @@
       '1': '맑음', '3': '구름많음', '4': '흐림'
     };
 
+    function formatDate(dateStr, timeStr) {
+      return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)} ${timeStr.slice(0, 2)}:${timeStr.slice(2, 4)}`;
+    }
+
     async function fetchWeather(regionName, nx, ny) {
       const type = document.getElementById("forecastType").value;
       document.getElementById("weather").innerText = `☁️ ${regionName}의 날씨 정보를 불러오는 중...`;
 
       const serviceKey = 'sCYMAONouIJFymPl0EiTeP15zhJtniLfUyqsTw3B0H9TNzwiTs%2FB0zu0zi5L4uiphDvdpygwuLp%2BYbBju3Mx%2Fw%3D%3D';
       const now = new Date();
-      let baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
-      let hour = now.getHours();
+      let base = new Date(now);
 
-      const baseTimes = type === 'vilage'
-        ? ['2300','2000','1700','1400','1100','0800','0500','0200']
-        : Array.from({ length: 24 }, (_, i) => ("0" + i).slice(-2) + "00").reverse();
-
+      let attempts = type === 'ultra' ? 48 : 8; // 초단기: 30분 단위 최대 24시간, 단기: 3시간 단위 최대 하루
       let found = false;
       let resultHtml = '';
 
-      for (let baseTime of baseTimes) {
-        let tryHour = parseInt(baseTime.slice(0, 2));
-        if (hour < tryHour) {
-          let dateObj = new Date(now);
-          dateObj.setDate(now.getDate() - 1);
-          baseDate = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
-        }
+      for (let i = 0; i < attempts; i++) {
+        let baseDate = base.toISOString().slice(0, 10).replace(/-/g, '');
+        let baseTime = ("0" + base.getHours()).slice(-2) + (type === 'ultra'
+          ? (base.getMinutes() < 30 ? '00' : '30')
+          : '00');
 
         const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${type === 'ultra' ? 'getUltraSrtNcst' : 'getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
 
@@ -103,19 +101,25 @@
           const json = await response.json();
           const header = json.response.header;
 
-          if (header.resultCode === "03") continue;
+          if (header.resultCode === "03" || header.resultCode === "10") {
+            base.setMinutes(base.getMinutes() - (type === 'ultra' ? 30 : 180));
+            continue;
+          }
 
           const items = json.response.body.items.item;
           const dataMap = {};
+          let fcstDate = '', fcstTime = '';
 
           items.forEach(item => {
             const category = item.category;
             const value = item.fcstValue || item.obsrValue;
             dataMap[category] = value;
+            fcstDate = item.fcstDate || item.baseDate;
+            fcstTime = item.fcstTime || item.baseTime;
           });
 
           resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
-          resultHtml += `<p>발표 시각: ${baseDate} ${baseTime}</p>`;
+          resultHtml += `<p>📢 발표시각: ${formatDate(baseDate, baseTime)}<br>⏰ 예측시각: ${formatDate(fcstDate, fcstTime)}</p>`;
           resultHtml += "<ul class='weather-list'>";
 
           Object.keys(dataMap).forEach(category => {
