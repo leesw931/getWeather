@@ -25,13 +25,16 @@
       padding: 0.3rem;
       margin-bottom: 1rem;
     }
-    ul.weather-list {
-      list-style: none;
-      padding: 0;
-      margin-top: 1rem;
+    table {
+      margin: 1rem auto;
+      border-collapse: collapse;
     }
-    ul.weather-list li {
-      margin: 0.3rem 0;
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem 1rem;
+    }
+    th {
+      background-color: #f2f2f2;
     }
   </style>
 </head>
@@ -72,10 +75,6 @@
       '1': '맑음', '3': '구름많음', '4': '흐림'
     };
 
-    function formatDate(dateStr, timeStr) {
-      return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)} ${timeStr.slice(0, 2)}:${timeStr.slice(2, 4)}`;
-    }
-
     function formatRainfall(val) {
       if (val === '-' || val === '0' || val === null || val === 'null') return '강수없음';
       const num = parseFloat(val);
@@ -92,74 +91,43 @@
 
       const serviceKey = 'sCYMAONouIJFymPl0EiTeP15zhJtniLfUyqsTw3B0H9TNzwiTs%2FB0zu0zi5L4uiphDvdpygwuLp%2BYbBju3Mx%2Fw%3D%3D';
       const now = new Date();
-      let base = new Date(now);
+      const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const baseTime = ('0' + now.getHours()).slice(-2) + '00';
 
-      let attempts = 48;
-      let found = false;
-      let resultHtml = '';
+      const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
 
-      for (let i = 0; i < attempts; i++) {
-        let baseDate = base.toISOString().slice(0, 10).replace(/-/g, '');
-        let baseTime = ("0" + base.getHours()).slice(-2) + (type === 'ultra'
-          ? (base.getMinutes() < 30 ? '00' : '30')
-          : '00');
+      try {
+        const response = await fetch(url);
+        const json = await response.json();
+        const items = json.response.body.items.item;
 
-        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${type === 'ultra' ? 'getUltraSrtNcst' : 'getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+        const forecastMap = {};
+        items.forEach(item => {
+          const time = item.fcstTime;
+          if (!forecastMap[time]) forecastMap[time] = {};
+          forecastMap[time][item.category] = item.fcstValue;
+        });
 
-        try {
-          const response = await fetch(url);
-          const json = await response.json();
-          const header = json.response.header;
+        const sortedTimes = Object.keys(forecastMap).sort().slice(0, 8); // 향후 8시간
 
-          if (header.resultCode === "03" || header.resultCode === "10") {
-            base.setMinutes(base.getMinutes() - 60);
-            continue;
-          }
+        let resultHtml = `<h3>${regionName} 날씨 (단기예보)</h3>`;
+        resultHtml += `<table><thead><tr><th>시간</th><th>기온</th><th>강수확률</th><th>하늘상태</th><th>강수량</th></tr></thead><tbody>`;
 
-          const items = json.response.body.items.item;
+        sortedTimes.forEach(time => {
+          const data = forecastMap[time];
+          const temp = data.TMP ? `${data.TMP}℃` : '-';
+          const pop = data.POP ? `${data.POP}%` : '-';
+          const sky = skyCodes[data.SKY] || data.SKY || '-';
+          const pcp = formatRainfall(data.PCP);
 
-          console.log('items  :::: ', items);
-          const dataMap = {};
-          let fcstDate = '', fcstTime = '';
+          resultHtml += `<tr><td>${time.slice(0, 2)}:00</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td></tr>`;
+        });
 
-          items.forEach(item => {
-            const category = item.category;
-            const value = item.fcstValue || item.obsrValue;
-            dataMap[category] = value;
-            fcstDate = item.fcstDate || item.baseDate;
-            fcstTime = item.fcstTime || item.baseTime;
-          });
-
-          resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
-          resultHtml += `<p>⏰ 발표시각: ${formatDate(fcstDate, fcstTime)}</p>`;
-          resultHtml += "<ul class='weather-list'>";
-
-          Object.keys(dataMap).forEach(category => {
-            let label = categoryLabels[category] || category;
-            let value = dataMap[category];
-            if (category === 'PTY') {
-              value = (type === 'ultra' ? ptyUltraCodes[value] : ptyVilageCodes[value]) || value;
-            } else if (category === 'SKY') {
-              value = skyCodes[value] || value;
-            } else if (category === 'RN1' || category === 'PCP') {
-              value = formatRainfall(value);
-            }
-            resultHtml += `<li>🔹 <strong>${label}</strong>: ${value}</li>`;
-          });
-
-          resultHtml += "</ul>";
-          found = true;
-          break;
-        } catch (e) {
-          console.error("API fetch error:", e);
-          break;
-        }
-      }
-
-      if (!found) {
-        document.getElementById("weather").innerText = `⚠️ ${regionName}의 유효한 날씨 정보를 찾을 수 없습니다.`;
-      } else {
+        resultHtml += `</tbody></table>`;
         document.getElementById("weather").innerHTML = resultHtml;
+      } catch (e) {
+        console.error("API fetch error:", e);
+        document.getElementById("weather").innerText = `⚠️ ${regionName}의 유효한 날씨 정보를 찾을 수 없습니다.`;
       }
     }
   </script>
