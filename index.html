@@ -68,9 +68,9 @@
     };
 
     function formatRainfall(val) {
-      if (val === '-' || val === '0' || val === null || val === 'null') return '강수없음';
+      if (val === '-' || val === '0' || val === null || val === 'null') return '0';
       const num = parseFloat(val);
-      if (isNaN(num) || num === 0) return '강수없음';
+      if (isNaN(num) || num === 0) return '0';
       if (num < 1.0) return '1mm 미만';
       if (num < 30.0) return `${num.toFixed(1)}mm`;
       if (num < 50.0) return '30.0~50.0mm';
@@ -80,9 +80,30 @@
     function formatWindSpeed(val) {
       const num = parseFloat(val);
       if (isNaN(num)) return '-';
-      if (num >= 9) return `${num}m/s (강한 바람)`;
-      if (num >= 4) return `${num}m/s (약간 강한 바람)`;
-      return `${num}m/s (약한 바람)`;
+      if (num >= 14) return `${num}m/s (매우강)`;
+      if (num >= 9) return `${num}m/s (강)`;
+      if (num >= 4) return `${num}m/s (약간강)`;
+      return `${num}m/s (약함)`;
+    }
+
+    function getPastSteps(type, count = 12) {
+      const now = new Date();
+      const base = new Date(now);
+      const min = base.getMinutes();
+      base.setMinutes(type === 'ultra' ? (min < 30 ? 0 : 30) : 0, 0, 0);
+
+      const stepMin = type === 'ultra' ? 30 : 60;
+      const result = [];
+      for (let i = 0; i < count; i++) {
+        const date = new Date(base.getTime() - i * stepMin * 60000);
+        const yyyy = date.getFullYear();
+        const MM = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const mi = String(date.getMinutes()).padStart(2, '0');
+        result.push({ baseDate: `${yyyy}${MM}${dd}`, baseTime: `${hh}${mi}` });
+      }
+      return result;
     }
 
     async function fetchWeather(regionName, nx, ny) {
@@ -90,32 +111,13 @@
       document.getElementById("weather").innerText = `☁️ ${regionName}의 날씨 정보를 불러오는 중...`;
 
       const serviceKey = 'sCYMAONouIJFymPl0EiTeP15zhJtniLfUyqsTw3B0H9TNzwiTs%2FB0zu0zi5L4uiphDvdpygwuLp%2BYbBju3Mx%2Fw%3D%3D';
-      const now = new Date();
 
-      let attempt = 0;
-      const maxAttempts = 12;
+      const attempts = getPastSteps(type);
       let responseData = null;
-      const tried = new Set();
 
-      while (attempt < maxAttempts) {
-        const interval = type === 'ultra' ? 30 : 60;
-        let testDate = new Date(now.getTime() - interval * 60000 * attempt);
-
-        if (type === 'ultra') {
-          const mm = testDate.getMinutes();
-          testDate.setMinutes(mm < 30 ? 0 : 30);
-        } else {
-          testDate.setMinutes(0);
-        }
-
-        const baseDate = testDate.toISOString().slice(0, 10).replace(/-/g, '');
-        const baseTime = testDate.toTimeString().slice(0, 5).replace(':', '');
-        const key = `${baseDate}${baseTime}`;
-
-        if (tried.has(key)) break;
-        tried.add(key);
-
-                const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0${type === 'ultra' ? '/getUltraSrtFcst' : '/getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+      for (const attempt of attempts) {
+        const { baseDate, baseTime } = attempt;
+        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0${type === 'ultra' ? '/getUltraSrtFcst' : '/getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
 
         try {
           const response = await fetch(url);
@@ -129,8 +131,6 @@
         } catch (e) {
           console.warn('API fetch 실패, 재시도 중...', e);
         }
-
-        attempt++;
       }
 
       if (!responseData?.response?.body?.items?.item) {
@@ -140,6 +140,7 @@
 
       const items = responseData.response.body.items.item;
       const forecastMap = {};
+      const now = new Date();
       const futureLimit = new Date(now.getTime() + 8 * 60 * 60000);
 
       items.forEach(item => {
