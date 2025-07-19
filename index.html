@@ -99,8 +99,13 @@
       try {
         const response = await fetch(url);
         const json = await response.json();
-        const items = json.response.body.items.item;
-
+        const header = json.response?.header;
+        const items = json.response?.body?.items?.item;
+      
+        if (header?.resultCode !== '00' || !items || !Array.isArray(items)) {
+          throw new Error(header?.resultMsg || '예보 데이터가 없습니다.');
+        }
+      
         const forecastMap = {};
         items.forEach(item => {
           const time = item.fcstTime;
