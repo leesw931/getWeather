@@ -77,6 +77,14 @@
       return '50.0mm 이상';
     }
 
+    function formatWindSpeed(val) {
+      const num = parseFloat(val);
+      if (isNaN(num)) return '-';
+      if (num >= 9) return `${num}m/s (강한 바람)`;
+      if (num >= 4) return `${num}m/s (약간 강한 바람)`;
+      return `${num}m/s (약한 바람)`;
+    }
+
     async function fetchWeather(regionName, nx, ny) {
       const type = document.getElementById("forecastType").value;
       document.getElementById("weather").innerText = `☁️ ${regionName}의 날씨 정보를 불러오는 중...`;
@@ -107,7 +115,7 @@
         if (tried.has(key)) break;
         tried.add(key);
 
-        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0${type === 'ultra' ? '/getUltraSrtFcst' : '/getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+                const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0${type === 'ultra' ? '/getUltraSrtFcst' : '/getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
 
         try {
           const response = await fetch(url);
@@ -146,9 +154,11 @@
       const sortedTimes = Object.keys(forecastMap).sort();
       const first = sortedTimes.length > 0 ? forecastMap[sortedTimes[0]] : {};
 
+      const formattedBase = first.baseDate ? `${first.baseDate.slice(0,4)}-${first.baseDate.slice(4,6)}-${first.baseDate.slice(6)} ${first.baseTime.slice(0,2)}:${first.baseTime.slice(2)}` : '-';
+
       let resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
-      resultHtml += `<p>발표일시: ${first.baseDate || '-'} ${first.baseTime || '-'}</p>`;
-      resultHtml += `<table><thead><tr><th>시간</th><th>기온</th><th>강수확률</th><th>하늘상태</th><th>강수량</th></tr></thead><tbody>`;
+      resultHtml += `<p>발표일시: ${formattedBase}</p>`;
+      resultHtml += `<table><thead><tr><th>시간</th><th>기온</th><th>강수확률</th><th>하늘상태</th><th>강수량</th><th>풍속</th></tr></thead><tbody>`;
 
       sortedTimes.forEach(time => {
         const data = forecastMap[time];
@@ -156,8 +166,9 @@
         const pop = data.POP ? `${data.POP}%` : '-';
         const sky = skyCodes[data.SKY] || '-';
         const pcp = formatRainfall(data.PCP || data.RN1);
+        const wind = data.WSD ? formatWindSpeed(data.WSD) : '-';
 
-        resultHtml += `<tr><td>${time.slice(0, 2)}:${time.slice(2)}</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td></tr>`;
+        resultHtml += `<tr><td>${time.slice(0, 2)}:${time.slice(2)}</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td><td>${wind}</td></tr>`;
       });
 
       resultHtml += `</tbody></table>`;
