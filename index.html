@@ -63,14 +63,6 @@
       SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도', TMP: '1시간기온 (℃)', SNO: '1시간 신적설량 (cm)'
     };
 
-    const ptyUltraCodes = {
-      '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '5': '빗방울', '6': '빗방울/눈날림', '7': '눈날림'
-    };
-
-    const ptyVilageCodes = {
-      '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '4': '소나기'
-    };
-
     const skyCodes = {
       '1': '맑음', '3': '구름많음', '4': '흐림'
     };
@@ -85,12 +77,6 @@
       return '50.0mm 이상';
     }
 
-    function getPrevDate(date) {
-      const prev = new Date(date);
-      prev.setDate(prev.getDate() - 1);
-      return prev.toISOString().slice(0, 10).replace(/-/g, '');
-    }
-
     async function fetchWeather(regionName, nx, ny) {
       const type = document.getElementById("forecastType").value;
       document.getElementById("weather").innerText = `☁️ ${regionName}의 날씨 정보를 불러오는 중...`;
@@ -99,39 +85,38 @@
       const now = new Date();
 
       let attempt = 0;
-      let maxAttempts = 6;
-      let foundData = false;
+      const maxAttempts = 12;
       let responseData = null;
+      const tried = new Set();
 
-      while (attempt < maxAttempts && !foundData) {
-        let testDate = new Date(now.getTime() - (type === 'ultra' ? 30 : 60) * 60000 * attempt);
-        let baseDate = testDate.toISOString().slice(0, 10).replace(/-/g, '');
-        let hh = testDate.getHours();
-        let mm = testDate.getMinutes();
-        let baseTime = '';
+      while (attempt < maxAttempts) {
+        const interval = type === 'ultra' ? 30 : 60;
+        let testDate = new Date(now.getTime() - interval * 60000 * attempt);
 
         if (type === 'ultra') {
-          if (mm < 30) {
-            hh = hh === 0 ? 23 : hh - 1;
-            baseDate = hh === 23 ? getPrevDate(testDate) : baseDate;
-            baseTime = String(hh).padStart(2, '0') + '30';
-          } else {
-            baseTime = String(hh).padStart(2, '0') + '00';
-          }
+          const mm = testDate.getMinutes();
+          testDate.setMinutes(mm < 30 ? 0 : 30);
         } else {
-          baseTime = String(hh).padStart(2, '0') + '00';
+          testDate.setMinutes(0);
         }
 
-        const url = `https://apis.data.go.kr/1360000/${type === 'ultra' ? 'UltraSrtFcstInfoService_1.0/getUltraSrtFcst' : 'VilageFcstInfoService_2.0/getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+        const baseDate = testDate.toISOString().slice(0, 10).replace(/-/g, '');
+        const baseTime = testDate.toTimeString().slice(0, 5).replace(':', '');
+        const key = `${baseDate}${baseTime}`;
+
+        if (tried.has(key)) break;
+        tried.add(key);
+
+        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0${type === 'ultra' ? '/getUltraSrtFcst' : '/getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
 
         try {
           const response = await fetch(url);
           const json = await response.json();
           const header = json.response?.header;
 
-          if (header?.resultCode === '00') {
+          if (header?.resultCode === '00' && json.response?.body?.items?.item?.length > 0) {
             responseData = json;
-            foundData = true;
+            break;
           }
         } catch (e) {
           console.warn('API fetch 실패, 재시도 중...', e);
@@ -140,23 +125,29 @@
         attempt++;
       }
 
-      if (!foundData || !responseData?.response?.body?.items?.item) {
+      if (!responseData?.response?.body?.items?.item) {
         document.getElementById("weather").innerText = `⚠️ ${regionName}의 날씨 정보를 찾을 수 없습니다.`;
         return;
       }
 
       const items = responseData.response.body.items.item;
       const forecastMap = {};
+      const futureLimit = new Date(now.getTime() + 8 * 60 * 60000);
+
       items.forEach(item => {
-        const time = item.fcstTime;
-        if (!forecastMap[time]) forecastMap[time] = {};
-        forecastMap[time][item.category] = item.fcstValue;
+        const dateTime = new Date(`${item.fcstDate} ${item.fcstTime.slice(0, 2)}:${item.fcstTime.slice(2)}`);
+        if (type === 'vilage' && (dateTime < now || dateTime > futureLimit)) return;
+        if (!forecastMap[item.fcstTime]) forecastMap[item.fcstTime] = {};
+        forecastMap[item.fcstTime][item.category] = item.fcstValue;
+        forecastMap[item.fcstTime]['baseDate'] = item.baseDate;
+        forecastMap[item.fcstTime]['baseTime'] = item.baseTime;
       });
 
-      const sortedTimes = Object.keys(forecastMap).sort().slice(0, 8);
+      const sortedTimes = Object.keys(forecastMap).sort();
+      const first = sortedTimes.length > 0 ? forecastMap[sortedTimes[0]] : {};
 
       let resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
-      resultHtml += `<p>발표일시: ${items[0].baseDate} ${items[0].baseTime}</p>`;
+      resultHtml += `<p>발표일시: ${first.baseDate || '-'} ${first.baseTime || '-'}</p>`;
       resultHtml += `<table><thead><tr><th>시간</th><th>기온</th><th>강수확률</th><th>하늘상태</th><th>강수량</th></tr></thead><tbody>`;
 
       sortedTimes.forEach(time => {
