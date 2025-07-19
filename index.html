@@ -40,8 +40,8 @@
 
   <label for="forecastType">예보 종류 선택:</label>
   <select id="forecastType">
-    <option value="ultra">초단기예보</option>
-    <option value="vilage">단기예보</option>
+    <option value="ultraShort">초단기예보</option>
+    <option value="short">단기예보</option>
   </select>
 
   <div>
@@ -91,9 +91,9 @@
       const baseTime = ("0" + (hour - 1)).slice(-2) + "00";
 
       let url = "";
-      if (type === "ultra") {
+      if (type === "ultraShort") {
         url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
-      } else if (type === "vilage") {
+      } else if (type === "short") {
         url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
       }
 
@@ -102,7 +102,7 @@
         const json = await response.json();
         const items = json.response.body.items.item;
 
-        let output = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
+        let output = `<h3>${regionName} 날씨 (${type === 'ultraShort' ? '초단기예보' : '단기예보'})</h3>`;
         output += "<ul class='weather-list'>";
         items.forEach(item => {
           let label = categoryLabels[item.category] || item.category;
