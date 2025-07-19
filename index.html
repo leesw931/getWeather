@@ -97,15 +97,15 @@
       const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
 
       try {
-        const response = await fetch(url);
         const json = await response.json();
         const header = json.response?.header;
         const items = json.response?.body?.items?.item;
-
+        
         console.log('items ::::: ', items);
-      
+        
         if (header?.resultCode !== '00' || !items || !Array.isArray(items)) {
-          throw new Error(header?.resultMsg || '예보 데이터가 없습니다.');
+          document.getElementById("weather").innerText = `⚠️ ${regionName}의 날씨 정보가 없습니다. (${header?.resultMsg || 'NO DATA'})`;
+          return;
         }
       
         const forecastMap = {};
