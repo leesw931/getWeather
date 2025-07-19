@@ -20,19 +20,49 @@
       font-size: 1rem;
       cursor: pointer;
     }
+    ul.weather-list {
+      list-style: none;
+      padding: 0;
+      margin-top: 1rem;
+    }
+    ul.weather-list li {
+      margin: 0.3rem 0;
+    }
   </style>
 </head>
 <body>
   <h1>우리 동네 날씨 확인</h1>
   <p>기준: 선택한 위치 기반 초단기 실황</p>
   <div>
-    <button class="location-button" onclick="getWeather(55, 59)">만수리</button>
-    <button class="location-button" onclick="getWeather(62, 121)">한성아파트</button>
-    <button class="location-button" onclick="getWeather(54,128)">김포 마산동</button>
+     <button class="location-button" onclick="getWeather(55, 34)">만수리</button>
+    <button class="location-button" onclick="getWeather(62, 37)">한성아파트</button>
+    <button class="location-button" onclick="getWeather(54, 37)">김포 마산동</button>
   </div>
   <div id="weather">🌤 날씨 정보를 선택해 주세요.</div>
 
   <script>
+    const categoryLabels = {
+      T1H: '기온 (℃)',
+      RN1: '1시간 강수량 (mm)',
+      UUU: '동서 바람성분 (m/s)',
+      VVV: '남북 바람성분 (m/s)',
+      REH: '습도 (%)',
+      PTY: '강수형태',
+      VEC: '풍향 (°)',
+      WSD: '풍속 (m/s)'
+    };
+
+    const ptyCodes = {
+      '0': '없음',
+      '1': '비',
+      '2': '비/눈',
+      '3': '눈',
+      '4': '소나기',
+      '5': '빗방울',
+      '6': '빗방울/눈날림',
+      '7': '눈날림'
+    };
+
     async function getWeather(nx, ny) {
       document.getElementById("weather").innerText = "🌦 날씨 정보를 불러오는 중...";
 
@@ -40,18 +70,23 @@
       const now = new Date();
       const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
       const hour = now.getHours();
-      const baseTime = ("0" + (hour - 1)).slice(-2) + "00"; // 최근 시간대 (정시 기준 -1)
+      const baseTime = ("0" + (hour - 1)).slice(-2) + "00";
 
-      const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${serviceKey}&numOfRows=10&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
-                   
+      const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${serviceKey}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+
       try {
         const response = await fetch(url);
         const json = await response.json();
         const items = json.response.body.items.item;
 
-        let output = "<ul style='list-style:none;padding:0;'>";
+        let output = "<ul class='weather-list'>";
         items.forEach(item => {
-          output += `<li>🔹 ${item.category}: ${item.obsrValue}</li>`;
+          let label = categoryLabels[item.category] || item.category;
+          let value = item.obsrValue;
+          if (item.category === 'PTY') {
+            value = ptyCodes[value] || value;
+          }
+          output += `<li>🔹 <strong>${label}</strong>: ${value}</li>`;
         });
         output += "</ul>";
         document.getElementById("weather").innerHTML = output;
