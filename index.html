@@ -101,6 +101,8 @@
         const json = await response.json();
         const header = json.response?.header;
         const items = json.response?.body?.items?.item;
+
+        console.log('items ::::: ', items);
       
         if (header?.resultCode !== '00' || !items || !Array.isArray(items)) {
           throw new Error(header?.resultMsg || '예보 데이터가 없습니다.');
