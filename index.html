@@ -45,7 +45,7 @@
   </select>
 
   <div>
-     <button class="location-button" onclick="fetchWeather('만수리', 55, 59)">만수리</button>
+    <button class="location-button" onclick="fetchWeather('만수리', 55, 59)">만수리</button>
     <button class="location-button" onclick="fetchWeather('수지', 62, 121)">수지</button>
     <button class="location-button" onclick="fetchWeather('마산동', 54, 128)">마산동</button>
   </div>
@@ -53,15 +53,19 @@
   <div id="weather">☁️ 지역과 예보 종류를 선택해 주세요.</div>
 
   <script>
-    const categoryLabels = {
+     const categoryLabels = {
       T1H: '기온 (℃)', RN1: '1시간 강수량 (mm)', UUU: '동서 바람성분 (m/s)',
       VVV: '남북 바람성분 (m/s)', REH: '습도 (%)', PTY: '강수형태', VEC: '풍향 (°)',
       WSD: '풍속 (m/s)', POP: '강수확률 (%)', TMN: '최저기온 (℃)', TMX: '최고기온 (℃)',
       SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도', TMP: '1시간기온', SNO: '1시간 신적설량'
     };
 
-    const ptyCodes = {
-      '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '4': '소나기', '5': '빗방울', '6': '빗방울/눈날림', '7': '눈날림'
+    const ptyUltraCodes = {
+      '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '5': '빗방울', '6': '빗방울/눈날림', '7': '눈날림'
+    };
+
+    const ptyVilageCodes = {
+      '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '4': '소나기'
     };
 
     const skyCodes = {
@@ -117,7 +121,9 @@
           Object.keys(dataMap).forEach(category => {
             let label = categoryLabels[category] || category;
             let value = dataMap[category];
-            if (category === 'PTY') value = ptyCodes[value] || value;
+            if (category === 'PTY') {
+              value = (type === 'ultra' ? ptyUltraCodes[value] : ptyVilageCodes[value]) || value;
+            }
             if (category === 'SKY') value = skyCodes[value] || value;
             resultHtml += `<li>🔹 <strong>${label}</strong>: ${value}</li>`;
           });
