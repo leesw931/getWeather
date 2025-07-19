@@ -117,6 +117,8 @@
           }
 
           const items = json.response.body.items.item;
+
+          console.log('items  :::: ', items);
           const dataMap = {};
           let fcstDate = '', fcstTime = '';
 
@@ -129,7 +131,7 @@
           });
 
           resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
-          resultHtml += `<p>⏰ 예측시각: ${formatDate(fcstDate, fcstTime)}</p>`;
+          resultHtml += `<p>⏰ 발표시각: ${formatDate(fcstDate, fcstTime)}</p>`;
           resultHtml += "<ul class='weather-list'>";
 
           Object.keys(dataMap).forEach(category => {
