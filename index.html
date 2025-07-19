@@ -94,7 +94,7 @@
       const now = new Date();
       let base = new Date(now);
 
-      let attempts = type === 'ultra' ? 48 : 8;
+      let attempts = 48;
       let found = false;
       let resultHtml = '';
 
@@ -112,13 +112,11 @@
           const header = json.response.header;
 
           if (header.resultCode === "03" || header.resultCode === "10") {
-            base.setMinutes(base.getMinutes() - (type === 'ultra' ? 30 : 180));
+            base.setMinutes(base.getMinutes() - 60);
             continue;
           }
 
           const items = json.response.body.items.item;
-
-          console.log('items ::::: ',items);
           const dataMap = {};
           let fcstDate = '', fcstTime = '';
 
@@ -131,7 +129,7 @@
           });
 
           resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
-          resultHtml += `<p>📢 발표시각: ${formatDate(baseDate, baseTime)}<br>⏰ 예측시각: ${formatDate(fcstDate, fcstTime)}</p>`;
+          resultHtml += `<p>⏰ 예측시각: ${formatDate(fcstDate, fcstTime)}</p>`;
           resultHtml += "<ul class='weather-list'>";
 
           Object.keys(dataMap).forEach(category => {
