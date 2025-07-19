@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>우리 동네 날씨</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    #weather {
+      margin-top: 2rem;
+      font-size: 1.2rem;
+    }
+    .location-button {
+      margin: 0.5rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>우리 동네 날씨 확인</h1>
+  <p>기준: 선택한 위치 기반 초단기 실황</p>
+  <div>
+    <button class="location-button" onclick="getWeather(60, 127)">서울</button>
+    <button class="location-button" onclick="getWeather(98, 76)">부산</button>
+    <button class="location-button" onclick="getWeather(55, 124)">대전</button>
+  </div>
+  <div id="weather">🌤 날씨 정보를 선택해 주세요.</div>
+
+  <script>
+    async function getWeather(nx, ny) {
+      document.getElementById("weather").innerText = "🌦 날씨 정보를 불러오는 중...";
+
+      const serviceKey = 'sCYMAONouIJFymPl0EiTeP15zhJtniLfUyqsTw3B0H9TNzwiTs%2FB0zu0zi5L4uiphDvdpygwuLp%2BYbBju3Mx%2Fw%3D%3D';
+      const now = new Date();
+      const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const hour = now.getHours();
+      const baseTime = ("0" + (hour - 1)).slice(-2) + "00"; // 최근 시간대 (정시 기준 -1)
+
+      const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${serviceKey}&numOfRows=10&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+                   
+      try {
+        const response = await fetch(url);
+        const json = await response.json();
+        const items = json.response.body.items.item;
+
+        let output = "<ul style='list-style:none;padding:0;'>";
+        items.forEach(item => {
+          output += `<li>🔹 ${item.category}: ${item.obsrValue}</li>`;
+        });
+        output += "</ul>";
+        document.getElementById("weather").innerHTML = output;
+      } catch (error) {
+        document.getElementById("weather").innerText = "⚠️ 날씨 정보를 가져오는 데 실패했습니다.";
+      }
+    }
+  </script>
+</body>
+</html>
