@@ -62,21 +62,17 @@
 </head>
 <body>
   <h1>우리가족 날씨정보</h1>
-
   <label for="forecastType">예보 종류 선택:</label>
   <select id="forecastType">
     <option value="ultra">초단기예보</option>
     <option value="vilage">단기예보</option>
   </select>
-
   <div>
     <button class="location-button" onclick="fetchWeather('만수리', 55, 59)">만수리</button>
     <button class="location-button" onclick="fetchWeather('수지', 62, 121)">수지</button>
     <button class="location-button" onclick="fetchWeather('마산동', 54, 128)">마산동</button>
   </div>
-
   <div id="weather">☁️ 지역과 예보 종류를 선택해 주세요.</div>
-
   <script>
     const categoryLabels = {
       T1H: '기온 (℃)', RN1: '1시간 강수량 (mm)', UUU: '동서 바람성분 (m/s)',
@@ -85,9 +81,7 @@
       SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도', TMP: '1시간기온 (℃)', SNO: '1시간 신적설량 (cm)'
     };
 
-    const skyCodes = {
-      '1': '맑음', '3': '구름많음', '4': '흐림'
-    };
+    const skyCodes = { '1': '맑음', '3': '구름많음', '4': '흐림' };
 
     function formatRainfall(val) {
       if (val === '-' || val === '0' || val === null || val === 'null') return '0';
@@ -113,7 +107,6 @@
       const base = new Date(now);
       const min = base.getMinutes();
       base.setMinutes(type === 'ultra' ? (min < 30 ? 0 : 30) : 0, 0, 0);
-
       const stepMin = type === 'ultra' ? 30 : 60;
       const result = [];
       for (let i = 0; i < count; i++) {
@@ -128,24 +121,43 @@
       return result;
     }
 
+    function shouldDisplayForecast(fcstDate, fcstTime, baseDate, hourSet) {
+      if (fcstDate === baseDate) return true;
+      const plusOne = new Date(baseDate.slice(0,4), baseDate.slice(4,6)-1, baseDate.slice(6,8));
+      plusOne.setDate(plusOne.getDate() + 1);
+      const plusTwo = new Date(plusOne); plusTwo.setDate(plusOne.getDate() + 1);
+      const plusThree = new Date(plusOne); plusThree.setDate(plusOne.getDate() + 2);
+      const d1 = `${plusOne.getFullYear()}${String(plusOne.getMonth()+1).padStart(2,'0')}${String(plusOne.getDate()).padStart(2,'0')}`;
+      const d2 = `${plusTwo.getFullYear()}${String(plusTwo.getMonth()+1).padStart(2,'0')}${String(plusTwo.getDate()).padStart(2,'0')}`;
+      const d3 = `${plusThree.getFullYear()}${String(plusThree.getMonth()+1).padStart(2,'0')}${String(plusThree.getDate()).padStart(2,'0')}`;
+      return ((fcstDate === d1 || fcstDate === d2 || fcstDate === d3) && hourSet.includes(fcstTime.slice(0,2)));
+    }
+    function formatShortTime(dateStr, timeStr) {
+      const now = new Date();
+      const fcst = new Date(dateStr.slice(0, 4), parseInt(dateStr.slice(4, 6)) - 1, dateStr.slice(6, 8), timeStr.slice(0, 2), timeStr.slice(2));
+      const today = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    
+      if (dateStr === today) {
+        return `${timeStr.slice(0, 2)}시`;
+      } else {
+        return `${parseInt(dateStr.slice(4, 6))}월${parseInt(dateStr.slice(6, 8))}일 ${timeStr.slice(0, 2)}시`;
+      }
+    }
+
     async function fetchWeather(regionName, nx, ny) {
       const type = document.getElementById("forecastType").value;
       document.getElementById("weather").innerText = `☁️ ${regionName}의 날씨 정보를 불러오는 중...`;
-
       const serviceKey = 'sCYMAONouIJFymPl0EiTeP15zhJtniLfUyqsTw3B0H9TNzwiTs%2FB0zu0zi5L4uiphDvdpygwuLp%2BYbBju3Mx%2Fw%3D%3D';
-
       const attempts = getPastSteps(type);
       let responseData = null;
 
       for (const attempt of attempts) {
         const { baseDate, baseTime } = attempt;
         const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0${type === 'ultra' ? '/getUltraSrtFcst' : '/getVilageFcst'}?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
-
         try {
           const response = await fetch(url);
           const json = await response.json();
           const header = json.response?.header;
-
           if (header?.resultCode === '00' && json.response?.body?.items?.item?.length > 0) {
             responseData = json;
             break;
@@ -164,30 +176,37 @@
       const forecastMap = {};
 
       items.forEach(item => {
-        const key = `${item.fcstDate} ${item.fcstTime}`;
+        const key = `${item.fcstDate}${item.fcstTime}`;
         if (!forecastMap[key]) forecastMap[key] = {};
         forecastMap[key][item.category] = item.fcstValue;
         forecastMap[key]['baseDate'] = item.baseDate;
         forecastMap[key]['baseTime'] = item.baseTime;
+        forecastMap[key]['fcstDate'] = item.fcstDate;
+        forecastMap[key]['fcstTime'] = item.fcstTime;
       });
 
       const sortedKeys = Object.keys(forecastMap).sort();
-      const first = sortedKeys.length > 0 ? forecastMap[sortedKeys[0]] : {};
-      const formattedBase = first.baseDate ? `${first.baseDate.slice(0,4)}-${first.baseDate.slice(4,6)}-${first.baseDate.slice(6)} ${first.baseTime.slice(0,2)}:${first.baseTime.slice(2)}` : '-';
-
+      const first = forecastMap[sortedKeys[0]];
+      const baseDate = first.fcstDate;
+      const formattedBase = `${first.baseDate.slice(0,4)}-${first.baseDate.slice(4,6)}-${first.baseDate.slice(6)} ${first.baseTime.slice(0,2)}:${first.baseTime.slice(2)}`;
       let resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
       resultHtml += `<p>발표일시: ${formattedBase}</p>`;
       resultHtml += `<table><thead><tr><th>예보일시</th><th>기온</th><th>강수확률</th><th>하늘상태</th><th>강수량</th><th>풍속</th></tr></thead><tbody>`;
 
+      const displayHours = ['09', '12', '15', '18', '21'];
+
       sortedKeys.forEach(key => {
         const data = forecastMap[key];
+        if (type === 'vilage') {
+          if (!shouldDisplayForecast(data.fcstDate, data.fcstTime, baseDate, displayHours)) return;
+        }
+        const dt = formatShortTime(data.fcstDate, data.fcstTime);
         const temp = data.TMP || data.T1H ? `${data.TMP || data.T1H}℃` : '-';
         const pop = data.POP ? `${data.POP}%` : '-';
         const sky = skyCodes[data.SKY] || '-';
         const pcp = formatRainfall(data.PCP || data.RN1);
         const wind = data.WSD ? formatWindSpeed(data.WSD) : '-';
-
-        resultHtml += `<tr><td>${key.slice(0, 4)}-${key.slice(4, 6)}-${key.slice(6, 8)} ${key.slice(9, 11)}:${key.slice(11)}</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td><td>${wind}</td></tr>`;
+        resultHtml += `<tr><td>${dt}</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td><td>${wind}</td></tr>`;
       });
 
       resultHtml += `</tbody></table>`;
