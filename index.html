@@ -81,7 +81,11 @@
       SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도', TMP: '1시간기온 (℃)', SNO: '1시간 신적설량 (cm)'
     };
 
-    const skyCodes = { '1': '맑음', '3': '구름많음', '4': '흐림' };
+    const skyIcons = {
+      '1': '☀️',      // 맑음
+      '3': '☁️',      // 구름많음
+      '4': '🌥️'       // 흐림
+    };
 
     function formatRainfall(val) {
       if (val === '-' || val === '0' || val === null || val === 'null') return '0';
@@ -100,6 +104,11 @@
       if (num >= 9) return `${num}m/s (강)`;
       if (num >= 4) return `${num}m/s (약간강)`;
       return `${num}m/s (약함)`;
+    }
+
+    function getSkyIcon(skyCode, rainfall) {
+      if (parseFloat(rainfall) > 0) return '🌧️';
+      return skyIcons[skyCode] || '❓';
     }
 
     function getPastSteps(type, count = 12) {
@@ -203,7 +212,7 @@
         const dt = formatShortTime(data.fcstDate, data.fcstTime);
         const temp = data.TMP || data.T1H ? `${data.TMP || data.T1H}℃` : '-';
         const pop = data.POP ? `${data.POP}%` : '-';
-        const sky = skyCodes[data.SKY] || '-';
+        const sky = getSkyIcon(data.SKY, data.PCP || data.RN1);
         const pcp = formatRainfall(data.PCP || data.RN1);
         const wind = data.WSD ? formatWindSpeed(data.WSD) : '-';
         resultHtml += `<tr><td>${dt}</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td><td>${wind}</td></tr>`;
@@ -212,6 +221,7 @@
       resultHtml += `</tbody></table>`;
       document.getElementById("weather").innerHTML = resultHtml;
     }
+    
   </script>
 </body>
 </html>
