@@ -162,36 +162,32 @@
 
       const items = responseData.response.body.items.item;
       const forecastMap = {};
-      const now = new Date();
-      const futureLimit = new Date(now.getTime() + 8 * 60 * 60000);
 
       items.forEach(item => {
-        const dateTime = new Date(`${item.fcstDate} ${item.fcstTime.slice(0, 2)}:${item.fcstTime.slice(2)}`);
-        if (type === 'vilage' && (dateTime < now || dateTime > futureLimit)) return;
-        if (!forecastMap[item.fcstTime]) forecastMap[item.fcstTime] = {};
-        forecastMap[item.fcstTime][item.category] = item.fcstValue;
-        forecastMap[item.fcstTime]['baseDate'] = item.baseDate;
-        forecastMap[item.fcstTime]['baseTime'] = item.baseTime;
+        const key = `${item.fcstDate} ${item.fcstTime}`;
+        if (!forecastMap[key]) forecastMap[key] = {};
+        forecastMap[key][item.category] = item.fcstValue;
+        forecastMap[key]['baseDate'] = item.baseDate;
+        forecastMap[key]['baseTime'] = item.baseTime;
       });
 
-      const sortedTimes = Object.keys(forecastMap).sort();
-      const first = sortedTimes.length > 0 ? forecastMap[sortedTimes[0]] : {};
-
+      const sortedKeys = Object.keys(forecastMap).sort();
+      const first = sortedKeys.length > 0 ? forecastMap[sortedKeys[0]] : {};
       const formattedBase = first.baseDate ? `${first.baseDate.slice(0,4)}-${first.baseDate.slice(4,6)}-${first.baseDate.slice(6)} ${first.baseTime.slice(0,2)}:${first.baseTime.slice(2)}` : '-';
 
       let resultHtml = `<h3>${regionName} 날씨 (${type === 'ultra' ? '초단기예보' : '단기예보'})</h3>`;
       resultHtml += `<p>발표일시: ${formattedBase}</p>`;
-      resultHtml += `<table><thead><tr><th>시간</th><th>기온</th><th>강수확률</th><th>하늘상태</th><th>강수량</th><th>풍속</th></tr></thead><tbody>`;
+      resultHtml += `<table><thead><tr><th>예보일시</th><th>기온</th><th>강수확률</th><th>하늘상태</th><th>강수량</th><th>풍속</th></tr></thead><tbody>`;
 
-      sortedTimes.forEach(time => {
-        const data = forecastMap[time];
+      sortedKeys.forEach(key => {
+        const data = forecastMap[key];
         const temp = data.TMP || data.T1H ? `${data.TMP || data.T1H}℃` : '-';
         const pop = data.POP ? `${data.POP}%` : '-';
         const sky = skyCodes[data.SKY] || '-';
         const pcp = formatRainfall(data.PCP || data.RN1);
         const wind = data.WSD ? formatWindSpeed(data.WSD) : '-';
 
-        resultHtml += `<tr><td>${time.slice(0, 2)}:${time.slice(2)}</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td><td>${wind}</td></tr>`;
+        resultHtml += `<tr><td>${key.slice(0, 4)}-${key.slice(4, 6)}-${key.slice(6, 8)} ${key.slice(9, 11)}:${key.slice(11)}</td><td>${temp}</td><td>${pop}</td><td>${sky}</td><td>${pcp}</td><td>${wind}</td></tr>`;
       });
 
       resultHtml += `</tbody></table>`;
