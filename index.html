@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -81,6 +80,7 @@
       SKY: '하늘상태', PCP: '강수량', WAV: '파고 (m)', TCI: '체감온도', TMP: '1시간기온 (℃)', SNO: '1시간 신적설량 (cm)'
     };
 
+    //const skyCodes = { '1': '맑음', '3': '구름많음', '4': '흐림' };
     const skyIcons = {
       '1': '☀️',      // 맑음
       '3': '☁️',      // 구름많음
@@ -97,32 +97,37 @@
       return '50.0mm 이상';
     }
 
-   function getWindLevelClass(speed) {
-      const val = parseFloat(speed);
-      if (isNaN(val)) return 'wind-light';
-      if (val >= 14) return 'wind-very-strong';
-      if (val >= 9) return 'wind-strong';
-      if (val >= 4) return 'wind-medium';
-      return 'wind-light';
-    }
+    // function formatWindSpeed(val) {
+    //   const num = parseFloat(val);
+    //   if (isNaN(num)) return '-';
+    //   if (num >= 14) return `${num}m/s (매우강)`;
+    //   if (num >= 9) return `${num}m/s (강)`;
+    //   if (num >= 4) return `${num}m/s (약간강)`;
+    //   return `${num}m/s (약함)`;
+    // }
 
     function formatWindSpeed(val) {
       const num = parseFloat(val);
       if (isNaN(num)) return '-';
-      let level = '';
-      if (num >= 14) level = '매우강';
-      else if (num >= 9) level = '강';
-      else if (num >= 4) level = '약간강';
-      else level = '약함';
-      const cls = getWindLevelClass(num);
-      return `<span class="${cls}"><span class="wind-icon"></span> ${num}m/s (${level})</span>`;
+      if (num >= 14) return `매우강`;
+      if (num >= 9) return `강`;
+      if (num >= 4) return `약간강`;
+      return `약함`;
     }
+
+    // function formatWindSpeed(speed) {
+    //   const num = parseFloat(val);
+    //   if (isNaN(num)) return '-';
+    //   if (num >= 14) return '🌀';
+    //   if (num >= 9) return '🌪️';
+    //   if (num >= 4) return '💨';
+    //   return '🌬️';
+    // }
 
     function getSkyIcon(skyCode, rainfall) {
       if (parseFloat(rainfall) > 0) return '🌧️';
       return skyIcons[skyCode] || '❓';
     }
-
     function getPastSteps(type, count = 12) {
       const now = new Date();
       const base = new Date(now);
@@ -157,7 +162,7 @@
       const now = new Date();
       const fcst = new Date(dateStr.slice(0, 4), parseInt(dateStr.slice(4, 6)) - 1, dateStr.slice(6, 8), timeStr.slice(0, 2), timeStr.slice(2));
       const today = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-    
+
       if (dateStr === today) {
         return `${timeStr.slice(0, 2)}시`;
       } else {
@@ -224,6 +229,7 @@
         const dt = formatShortTime(data.fcstDate, data.fcstTime);
         const temp = data.TMP || data.T1H ? `${data.TMP || data.T1H}℃` : '-';
         const pop = data.POP ? `${data.POP}%` : '-';
+        //const sky = skyCodes[data.SKY] || '-';
         const sky = getSkyIcon(data.SKY, data.PCP || data.RN1);
         const pcp = formatRainfall(data.PCP || data.RN1);
         const wind = data.WSD ? formatWindSpeed(data.WSD) : '-';
